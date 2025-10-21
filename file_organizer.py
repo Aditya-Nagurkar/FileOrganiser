@@ -369,7 +369,7 @@ if selected_drive:
 
     if selected_folder:
         folder = str(selected_folder)
-        
+
         # Enhanced file organization options
         st.markdown("---")
         st.subheader("🗂️ File Organization Options")
@@ -412,8 +412,8 @@ if selected_drive:
                             moved_files += 1
                     except (FileNotFoundError, PermissionError, OSError):
                         continue
-                st.success(f"✅ Organized {moved_files} file(s) by extension!")
-        
+                    st.success(f"✅ Organized {moved_files} file(s) by extension!")
+
         with col2:
             if st.button("🏷️ Organize by Type", use_container_width=True, key="type_btn"):
                 moved_files = 0
@@ -615,7 +615,7 @@ if selected_drive:
 
         if file_list:
             df = pd.DataFrame(file_list)
-            
+
             # Display files with enhanced information
             st.subheader("📄 Files in Folder")
             
