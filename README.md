@@ -49,8 +49,8 @@ A comprehensive file management and security tool built with Streamlit that help
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/file-organizer.git
-   cd file-organizer
+   git clone https://github.com/Aditya-Nagurkar/fileOrganizer.git
+   cd fileOrganizer
    ```
 
 2. **Install dependencies**
