@@ -95,41 +95,63 @@ with st.sidebar:
     quarantine_suspicious = st.checkbox("Auto-quarantine suspicious files", value=False)
 
 def get_available_drives():
-    """Get available drives and common directories on Linux"""
+    """Get available drives and common directories - works locally and on Streamlit Cloud"""
     drives = []
     
-    # Add common user directories first (most important for Linux)
-    home_dir = os.path.expanduser("~")
+    # Add common directories that work in both local and cloud environments
     common_dirs = [
-        home_dir,
-        os.path.join(home_dir, "Downloads"),
-        os.path.join(home_dir, "Documents"),
-        os.path.join(home_dir, "Desktop"),
-        os.path.join(home_dir, "Pictures"),
-        os.path.join(home_dir, "Videos"),
-        os.path.join(home_dir, "Music"),
-        os.path.join(home_dir, "Projects"),
-        os.path.join(home_dir, "Code"),
         "/tmp",
         "/var/tmp",
         "/opt",
-        "/usr/local"
+        "/usr/local",
+        "/home",
+        "/root"
     ]
     
-    # Add common directories that exist
-    for dir_path in common_dirs:
-        if os.path.exists(dir_path) and os.path.isdir(dir_path) and dir_path not in drives:
-            drives.append(dir_path)
+    # Try to get home directory
+    try:
+        home_dir = os.path.expanduser("~")
+        if home_dir and home_dir not in drives:
+            drives.append(home_dir)
+            
+        # Add common user subdirectories
+        user_dirs = [
+            "Downloads", "Documents", "Desktop", "Pictures", 
+            "Videos", "Music", "Projects", "Code", "src"
+        ]
+        
+        for subdir in user_dirs:
+            dir_path = os.path.join(home_dir, subdir)
+            if os.path.exists(dir_path) and os.path.isdir(dir_path):
+                drives.append(dir_path)
+    except Exception:
+        pass
     
-    # Get mount points from psutil (less important for typical usage)
+    # Add system directories that exist
+    for dir_path in common_dirs:
+        try:
+            if os.path.exists(dir_path) and os.path.isdir(dir_path) and os.access(dir_path, os.R_OK):
+                drives.append(dir_path)
+        except Exception:
+            continue
+    
+    # Try psutil for mount points (may not work in cloud)
     try:
         partitions = psutil.disk_partitions(all=False)
         mount_points = [p.mountpoint for p in partitions if os.path.exists(p.mountpoint) and os.path.isdir(p.mountpoint)]
         for mount_point in mount_points:
-            if mount_point not in drives:
+            if mount_point not in drives and os.access(mount_point, os.R_OK):
                 drives.append(mount_point)
     except Exception:
-        pass  # If psutil fails, continue without mount points
+        pass  # psutil may not work in cloud environment
+    
+    # If no drives found, add current working directory
+    if not drives:
+        try:
+            current_dir = os.getcwd()
+            drives.append(current_dir)
+        except Exception:
+            drives.append("/tmp")  # Fallback
     
     return drives
 
@@ -347,15 +369,36 @@ if selected_drive:
     BASE_DIR = Path(selected_drive)
 
     try:
+        # Check if directory exists and is accessible
+        if not BASE_DIR.exists():
+            st.error(f"🚫 Directory '{selected_drive}' does not exist.")
+            st.stop()
+        
+        if not BASE_DIR.is_dir():
+            st.error(f"🚫 '{selected_drive}' is not a directory.")
+            st.stop()
+            
+        if not os.access(selected_drive, os.R_OK):
+            st.error(f"🚫 No read permission for '{selected_drive}'.")
+            st.stop()
+
         folder_options = [
             (f"📁 Root of {selected_drive}", BASE_DIR)
-        ] + [
-            (f"📂 {f.name}", f)
-            for f in BASE_DIR.iterdir()
-            if f.is_dir()
         ]
-    except PermissionError:
-        st.error("🚫 Access denied to this drive or folder.")
+        
+        # Try to list subdirectories
+        try:
+            subdirs = [
+                (f"📂 {f.name}", f)
+                for f in BASE_DIR.iterdir()
+                if f.is_dir() and os.access(f, os.R_OK)
+            ]
+            folder_options.extend(subdirs)
+        except PermissionError:
+            st.warning(f"⚠️ Limited access to subdirectories in '{selected_drive}'.")
+            
+    except Exception as e:
+        st.error(f"🚫 Error accessing '{selected_drive}': {str(e)}")
         st.stop()
 
     selected_label = st.selectbox(
