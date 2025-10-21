@@ -98,12 +98,7 @@ def get_available_drives():
     """Get available drives and common directories on Linux"""
     drives = []
     
-    # Get mount points from psutil
-    partitions = psutil.disk_partitions(all=False)
-    mount_points = [p.mountpoint for p in partitions if os.path.exists(p.mountpoint) and os.path.isdir(p.mountpoint)]
-    drives.extend(mount_points)
-    
-    # Add common user directories
+    # Add common user directories first (most important for Linux)
     home_dir = os.path.expanduser("~")
     common_dirs = [
         home_dir,
@@ -113,14 +108,28 @@ def get_available_drives():
         os.path.join(home_dir, "Pictures"),
         os.path.join(home_dir, "Videos"),
         os.path.join(home_dir, "Music"),
+        os.path.join(home_dir, "Projects"),
+        os.path.join(home_dir, "Code"),
         "/tmp",
-        "/var/tmp"
+        "/var/tmp",
+        "/opt",
+        "/usr/local"
     ]
     
     # Add common directories that exist
     for dir_path in common_dirs:
         if os.path.exists(dir_path) and os.path.isdir(dir_path) and dir_path not in drives:
             drives.append(dir_path)
+    
+    # Get mount points from psutil (less important for typical usage)
+    try:
+        partitions = psutil.disk_partitions(all=False)
+        mount_points = [p.mountpoint for p in partitions if os.path.exists(p.mountpoint) and os.path.isdir(p.mountpoint)]
+        for mount_point in mount_points:
+            if mount_point not in drives:
+                drives.append(mount_point)
+    except Exception:
+        pass  # If psutil fails, continue without mount points
     
     return drives
 
@@ -412,7 +421,7 @@ if selected_drive:
                             moved_files += 1
                     except (FileNotFoundError, PermissionError, OSError):
                         continue
-                    st.success(f"✅ Organized {moved_files} file(s) by extension!")
+                st.success(f"✅ Organized {moved_files} file(s) by extension!")
 
         with col2:
             if st.button("🏷️ Organize by Type", use_container_width=True, key="type_btn"):
@@ -570,7 +579,7 @@ if selected_drive:
         
         # File search
         search_term = st.text_input("🔍 Search files:", placeholder="Enter filename, extension, or content...")
-        
+
         file_list = []
         all_files = []
         
